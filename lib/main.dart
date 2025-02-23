@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -11,7 +12,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       home: GamePage(),
     );
   }
@@ -24,11 +25,12 @@ class GamePage extends StatefulWidget {
   _GamePageState createState() => _GamePageState();
 }
 
-class _GamePageState extends State<GamePage> {
+class _GamePageState extends State<GamePage>
+    with SingleTickerProviderStateMixin {
   // 常數定義
   static const double BLOCK_HEIGHT = 125.0;
   static const double BLOCK_WIDTH = 125.0;
-  static const int INITIAL_TIME = 10;
+  static const int INITIAL_TIME = 5;
   static const int INITIAL_COUNTDOWN = 3;
 
   // 通用樣式
@@ -43,8 +45,16 @@ class _GamePageState extends State<GamePage> {
     color: Color.fromARGB(255, 62, 50, 50),
   );
 
+  static const Shadow subtleShadow = Shadow(
+    offset: Offset(2, 2),
+    blurRadius: 3,
+    color: Color.fromARGB(255, 62, 50, 50),
+  );
+
   // 狀態變數
   int score = 0;
+  int bestScore = 0;
+  bool isNewRecord = false;
   Timer? gameTimer;
   Timer? dropTimer;
   Timer? countdownTimer;
@@ -55,10 +65,75 @@ class _GamePageState extends State<GamePage> {
   int remainingTime = INITIAL_TIME;
   int countdown = INITIAL_COUNTDOWN;
   bool isPaused = false;
+  late AnimationController _animationController;
+
+  // 添加按鈕動畫相關變數
+  Map<int, bool> buttonStates = {0: false, 1: false, 2: false};
 
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
+    _loadBestScore();
+  }
+
+  Future<void> _loadBestScore() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      bestScore = prefs.getInt('bestScore') ?? 0;
+    });
+  }
+
+  Future<void> _saveBestScore() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setInt('bestScore', bestScore);
+  }
+
+  Future<void> _resetBestScore() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('bestScore');
+    setState(() {
+      bestScore = 0;
+    });
+  }
+
+  void _showResetDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('重置最佳紀錄'),
+          content: const Text('你確定要重置最佳紀錄嗎？'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('取消'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('重置'),
+              onPressed: () {
+                _resetBestScore();
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    gameTimer?.cancel();
+    dropTimer?.cancel();
+    countdownTimer?.cancel();
+    super.dispose();
   }
 
   List<List<int>> generateRandomGrid() {
@@ -75,24 +150,27 @@ class _GamePageState extends State<GamePage> {
       isGameStarted = true;
       score = 0;
       isGameOver = false;
+      isNewRecord = false;
       remainingTime = INITIAL_TIME;
       countdown = INITIAL_COUNTDOWN;
       grid = generateRandomGrid();
     });
 
-    countdownTimer = Timer.periodic(
-      const Duration(seconds: 1),
-      (timer) {
-        setState(() {
-          if (countdown > 0) {
-            countdown--;
-          } else {
-            timer.cancel();
-            startMainGame();
-          }
-        });
-      },
-    );
+    _animationController.forward().then((_) {
+      countdownTimer = Timer.periodic(
+        const Duration(seconds: 1),
+        (timer) {
+          setState(() {
+            if (countdown > 0) {
+              countdown--;
+            } else {
+              timer.cancel();
+              startMainGame();
+            }
+          });
+        },
+      );
+    });
   }
 
   void startMainGame() {
@@ -102,6 +180,11 @@ class _GamePageState extends State<GamePage> {
           remainingTime--;
         } else {
           isGameOver = true;
+          if (score > bestScore) {
+            bestScore = score;
+            isNewRecord = true;
+            _saveBestScore();
+          }
           timer.cancel();
           dropTimer?.cancel();
           setState(() {}); // 觸發重繪以顯示遊戲結束畫面
@@ -143,25 +226,26 @@ class _GamePageState extends State<GamePage> {
     });
   }
 
-  @override
-  void dispose() {
-    gameTimer?.cancel();
-    dropTimer?.cancel();
-    countdownTimer?.cancel();
-    super.dispose();
-  }
-
   Widget buildGameControls() {
     return Row(
       children: List.generate(
         3,
         (index) => Expanded(
           child: GestureDetector(
-            onTap: () => onButtonPressed(index),
-            child: Image.asset(
-              'assets/star.png',
-              fit: BoxFit.cover,
-              height: 90,
+            onTapDown: (_) => setState(() => buttonStates[index] = true),
+            onTapUp: (_) {
+              setState(() => buttonStates[index] = false);
+              onButtonPressed(index);
+            },
+            onTapCancel: () => setState(() => buttonStates[index] = false),
+            child: AnimatedScale(
+              scale: buttonStates[index] == true ? 0.9 : 1.0,
+              duration: const Duration(milliseconds: 100),
+              child: Image.asset(
+                'assets/images/star.png', // 確保圖片文件存在於此路徑
+                fit: BoxFit.cover,
+                height: 90,
+              ),
             ),
           ),
         ),
@@ -196,6 +280,13 @@ class _GamePageState extends State<GamePage> {
                     child: ElevatedButton(
                       onPressed: buttonData['onPressed'] as void Function(),
                       style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30.0),
+                        ),
+                        elevation: 10,
+                        splashFactory: NoSplash.splashFactory, // 移除漣漪效果
                         padding: const EdgeInsets.symmetric(
                           horizontal: 50,
                           vertical: 20,
@@ -225,19 +316,19 @@ class _GamePageState extends State<GamePage> {
                 textAlign: TextAlign.center,
                 text: TextSpan(
                   style: commonTextStyle.copyWith(fontSize: 70),
-                  children: [
+                  children: const [
                     TextSpan(
                       text: 'GAME',
                       style: TextStyle(
-                        color: const Color.fromARGB(255, 111, 166, 255),
-                        shadows: const [commonShadow],
+                        color: Color.fromARGB(255, 111, 166, 255),
+                        shadows: [commonShadow],
                       ),
                     ),
                     TextSpan(
                       text: ' OVER!',
                       style: TextStyle(
-                        color: const Color.fromARGB(255, 255, 101, 91),
-                        shadows: const [commonShadow],
+                        color: Color.fromARGB(255, 255, 101, 91),
+                        shadows: [commonShadow],
                       ),
                     ),
                   ],
@@ -249,23 +340,58 @@ class _GamePageState extends State<GamePage> {
                 text: TextSpan(
                   style: commonTextStyle.copyWith(fontSize: 50),
                   children: [
-                    TextSpan(
+                    const TextSpan(
                       text: 'score: ',
                       style: TextStyle(
-                        color: const Color.fromARGB(255, 220, 220, 220),
-                        shadows: const [commonShadow],
+                        color: Color.fromARGB(255, 220, 220, 220),
+                        shadows: [commonShadow],
                       ),
                     ),
                     TextSpan(
                       text: '$score',
-                      style: TextStyle(
-                        color: const Color.fromARGB(255, 255, 234, 0),
-                        shadows: const [commonShadow],
+                      style: const TextStyle(
+                        color: Color.fromARGB(255, 255, 234, 0),
+                        shadows: [commonShadow],
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(height: 20),
+              RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(
+                  style: commonTextStyle.copyWith(fontSize: 50),
+                  children: [
+                    const TextSpan(
+                      text: 'best: ',
+                      style: TextStyle(
+                        color: Color.fromARGB(255, 220, 220, 220),
+                        shadows: [commonShadow],
+                      ),
+                    ),
+                    TextSpan(
+                      text: '$bestScore',
+                      style: const TextStyle(
+                        color: Color.fromARGB(255, 255, 234, 0),
+                        shadows: [commonShadow],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isNewRecord) const SizedBox(height: 20),
+              if (isNewRecord)
+                const Text(
+                  '打破新紀録！',
+                  style: TextStyle(
+                    fontSize: 40,
+                    color: Color.fromARGB(255, 172, 252, 154),
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Crayon',
+                    shadows: [commonShadow],
+                  ),
+                ),
               const SizedBox(height: 20),
               SizedBox(
                 width: 200,
@@ -277,6 +403,14 @@ class _GamePageState extends State<GamePage> {
                     });
                   },
                   style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30.0),
+                    ),
+                    elevation: 10,
+                    shadowColor: Colors.black,
+                    splashFactory: NoSplash.splashFactory, // 移除漣漪效果
                     padding: const EdgeInsets.symmetric(
                       horizontal: 50,
                       vertical: 20,
@@ -299,11 +433,40 @@ class _GamePageState extends State<GamePage> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: Image.asset(
-              isGameStarted
-                  ? 'assets/inside_background.png'
-                  : 'assets/main_background.png',
-              fit: BoxFit.cover,
+            child: AnimatedBuilder(
+              animation: _animationController,
+              builder: (context, child) {
+                return Stack(
+                  children: [
+                    Positioned.fill(
+                      child: ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                          Colors.black.withOpacity(_animationController.value),
+                          BlendMode.darken,
+                        ),
+                        child: Image.asset(
+                          'assets/images/main_background.png', // 更新圖片路徑
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    if (_animationController.value > 0.1)
+                      Positioned.fill(
+                        child: ColorFiltered(
+                          colorFilter: ColorFilter.mode(
+                            Colors.black
+                                .withOpacity(1.0 - _animationController.value),
+                            BlendMode.darken,
+                          ),
+                          child: Image.asset(
+                            'assets/images/inside_background.png', // 確保圖片文件存在於此路徑
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
           Column(
@@ -352,10 +515,24 @@ class _GamePageState extends State<GamePage> {
               top: 40,
               right: 10,
               child: IconButton(
-                icon: Icon(isPaused ? Icons.play_arrow : Icons.pause),
+                icon: Icon(
+                  isPaused ? Icons.play_arrow : Icons.pause,
+                  shadows: const [subtleShadow], // 添加陰影
+                ),
                 color: Colors.white,
                 iconSize: 30,
                 onPressed: togglePause,
+              ),
+            ),
+          if (!isGameStarted)
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.refresh),
+                color: Colors.white,
+                iconSize: 30,
+                onPressed: _showResetDialog,
               ),
             ),
           if (isPaused) buildPauseOverlay(),
@@ -380,7 +557,7 @@ class _GamePageState extends State<GamePage> {
                       width: BLOCK_WIDTH,
                       height: BLOCK_HEIGHT,
                       child: Image.asset(
-                        'assets/kirby01.png',
+                        'assets/images/kirby01.png', // 確保圖片文件存在於此路徑
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -400,19 +577,26 @@ class _GamePageState extends State<GamePage> {
               textAlign: TextAlign.center,
               text: TextSpan(
                 style: commonTextStyle.copyWith(fontSize: 50),
-                children: [
+                children: const [
                   TextSpan(
-                    text: 'カービィ\n踏 ',
+                    text: 'カービィ\n',
                     style: TextStyle(
-                      color: const Color.fromARGB(255, 255, 140, 140),
-                      shadows: const [commonShadow],
+                      color: Color.fromARGB(255, 255, 140, 140),
+                      shadows: [commonShadow],
+                    ),
+                  ),
+                  TextSpan(
+                    text: '踏 ',
+                    style: TextStyle(
+                      color: Color.fromARGB(255, 203, 203, 203),
+                      shadows: [commonShadow],
                     ),
                   ),
                   TextSpan(
                     text: '星 星',
                     style: TextStyle(
                       color: Colors.yellow,
-                      shadows: const [commonShadow],
+                      shadows: [commonShadow],
                     ),
                   ),
                 ],
@@ -422,11 +606,22 @@ class _GamePageState extends State<GamePage> {
             ElevatedButton(
               onPressed: startGame,
               style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromARGB(255, 112, 173, 237),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30.0),
+                ),
+                elevation: 10,
+                shadowColor: Colors.black,
+                splashFactory: NoSplash.splashFactory, // 移除漣漪效果
                 padding: const EdgeInsets.symmetric(
                   horizontal: 50,
                   vertical: 20,
                 ),
-                textStyle: commonTextStyle.copyWith(fontSize: 30),
+                textStyle: commonTextStyle.copyWith(
+                  fontSize: 35,
+                  shadows: const [subtleShadow], // 添加較不明顯的陰影
+                ),
               ),
               child: const Text('START！'),
             ),
