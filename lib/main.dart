@@ -4,10 +4,12 @@ import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:audioplayers/audioplayers.dart';
 
+// 應用程式的入口
 void main() {
   runApp(const MyApp());
 }
 
+// 主應用程式
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -19,6 +21,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// 遊戲頁面
 class GamePage extends StatefulWidget {
   const GamePage({super.key});
 
@@ -85,6 +88,7 @@ class _GamePageState extends State<GamePage>
     _playTitleMusic();
   }
 
+  // 載入最佳分數
   Future<void> _loadBestScore() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -92,11 +96,13 @@ class _GamePageState extends State<GamePage>
     });
   }
 
+  // 保存最佳分數
   Future<void> _saveBestScore() async {
     final prefs = await SharedPreferences.getInstance();
     prefs.setInt('bestScore', bestScore);
   }
 
+  // 重置最佳分數
   Future<void> _resetBestScore() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('bestScore');
@@ -105,6 +111,7 @@ class _GamePageState extends State<GamePage>
     });
   }
 
+  // 顯示重置對話框
   void _showResetDialog() {
     showDialog(
       context: context,
@@ -132,32 +139,39 @@ class _GamePageState extends State<GamePage>
     );
   }
 
+  // 播放標題音樂
   void _playTitleMusic() async {
     _backgroundPlayer = await _audioCache.loop('title.mp3');
   }
 
+  // 播放遊戲音樂
   void _playGameMusic() async {
     _backgroundPlayer?.stop();
     _backgroundPlayer = await _audioCache.loop('playing_game.mp3');
   }
 
+  // 播放點擊音效
   void _playClickSound() {
     _audioCache.play('click.mp3');
   }
 
+  // 播放遊戲結束音樂
   void _playGameOverMusic() async {
     _backgroundPlayer?.stop();
     _backgroundPlayer = await _audioCache.play('game_over.mp3');
   }
 
+  // 播放按鈕點擊音效
   void _playTapButtonSound() {
     _audioCache.play('tap_button.mp3');
   }
 
+  // 靜音背景音樂
   void _muteBackgroundMusic() {
     _backgroundPlayer?.setVolume(0);
   }
 
+  // 取消靜音背景音樂
   void _unmuteBackgroundMusic() {
     _backgroundPlayer?.setVolume(1);
   }
@@ -172,6 +186,7 @@ class _GamePageState extends State<GamePage>
     super.dispose();
   }
 
+  // 生成隨機網格
   List<List<int>> generateRandomGrid() {
     List<List<int>> newGrid = List.generate(6, (i) => List.filled(3, 0));
     for (int i = 0; i < 5; i++) {
@@ -181,6 +196,7 @@ class _GamePageState extends State<GamePage>
     return newGrid;
   }
 
+  // 開始遊戲
   void startGame() {
     setState(() {
       isGameStarted = true;
@@ -210,6 +226,7 @@ class _GamePageState extends State<GamePage>
     });
   }
 
+  // 開始主遊戲
   void startMainGame() {
     gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
@@ -231,6 +248,7 @@ class _GamePageState extends State<GamePage>
     });
   }
 
+  // 按下按鈕時的處理
   void onButtonPressed(int column) {
     setState(() {
       if (grid[4][column] == 1) {
@@ -245,6 +263,7 @@ class _GamePageState extends State<GamePage>
     });
   }
 
+  // 切換暫停狀態
   void togglePause() {
     setState(() {
       isPaused = !isPaused;
@@ -259,6 +278,7 @@ class _GamePageState extends State<GamePage>
     });
   }
 
+  // 重新開始遊戲
   void restartGame() {
     _playTapButtonSound();
     setState(() {
@@ -269,6 +289,7 @@ class _GamePageState extends State<GamePage>
     });
   }
 
+  // 建立遊戲控制按鈕
   Widget buildGameControls() {
     return Row(
       children: List.generate(
@@ -296,6 +317,7 @@ class _GamePageState extends State<GamePage>
     );
   }
 
+  // 建立暫停覆蓋層
   Widget buildPauseOverlay() {
     return Positioned.fill(
       child: Container(
@@ -358,6 +380,7 @@ class _GamePageState extends State<GamePage>
     );
   }
 
+  // 建立遊戲結束覆蓋層
   Widget buildGameOverOverlay() {
     return Positioned.fill(
       child: Container(
@@ -487,6 +510,7 @@ class _GamePageState extends State<GamePage>
     return Scaffold(
       body: Stack(
         children: [
+          // 背景動畫
           Positioned.fill(
             child: AnimatedBuilder(
               animation: _animationController,
@@ -526,6 +550,7 @@ class _GamePageState extends State<GamePage>
           ),
           Column(
             children: [
+              // 倒數計時
               if (isGameStarted && countdown > 0)
                 Expanded(
                   child: Center(
@@ -540,6 +565,7 @@ class _GamePageState extends State<GamePage>
                     ),
                   ),
                 ),
+              // 遊戲時間顯示
               if (isGameStarted && countdown == 0)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(8.0, 50.0, 8.0, 8.0),
@@ -551,8 +577,11 @@ class _GamePageState extends State<GamePage>
                     ),
                   ),
                 ),
+              // 遊戲網格
               if (!isPaused && isGameStarted) buildGameGrid(),
+              // 主選單
               if (!isGameStarted) buildMainMenu(),
+              // 遊戲控制按鈕和得分顯示
               if (isGameStarted && countdown == 0 && !isPaused) ...[
                 buildGameControls(),
                 Padding(
@@ -565,6 +594,7 @@ class _GamePageState extends State<GamePage>
               ],
             ],
           ),
+          // 暫停按鈕
           if (isGameStarted && countdown == 0)
             Positioned(
               top: 40,
@@ -582,6 +612,7 @@ class _GamePageState extends State<GamePage>
                 },
               ),
             ),
+          // 重置按鈕
           if (!isGameStarted)
             Positioned(
               top: 40,
@@ -596,13 +627,16 @@ class _GamePageState extends State<GamePage>
                 },
               ),
             ),
+          // 暫停覆蓋層
           if (isPaused) buildPauseOverlay(),
+          // 遊戲結束覆蓋層
           if (isGameOver) buildGameOverOverlay(),
         ],
       ),
     );
   }
 
+  // 建立遊戲網格
   Widget buildGameGrid() {
     return Expanded(
       child: Stack(
@@ -628,6 +662,7 @@ class _GamePageState extends State<GamePage>
     );
   }
 
+  // 建立主選單
   Widget buildMainMenu() {
     return Expanded(
       child: Center(
