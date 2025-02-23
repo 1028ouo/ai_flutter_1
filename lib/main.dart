@@ -31,7 +31,7 @@ class _GamePageState extends State<GamePage>
   // 常數定義
   static const double BLOCK_HEIGHT = 125.0;
   static const double BLOCK_WIDTH = 125.0;
-  static const int INITIAL_TIME = 3;
+  static const int INITIAL_TIME = 60;
   static const int INITIAL_COUNTDOWN = 3;
 
   // 通用樣式
