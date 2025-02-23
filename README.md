@@ -1,30 +1,41 @@
-# ai_code
+# Kirby踏星星遊戲
 
-A new Flutter project.
+這是一個使用 Flutter 開發的 Kirby 踏星星遊戲。玩家需要在限定時間內點擊畫面上的星星來獲得分數，並挑戰最高紀錄。
 
-## Getting Started
+## 功能
 
-This project is a starting point for a Flutter application.
+- 遊戲內播放音樂
+- 記錄並顯示最佳分數
+- 能夠重置最佳紀錄
+- 支援暫停與重新開始遊戲
 
-A few resources to get you started if this is your first Flutter project:
+## 安裝與使用
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+1. 確保已安裝 Flutter 環境，並且已經配置好開發環境。
+2. 將專案克隆到本地端：
+    ```sh
+    git clone https://github.com/1028ouo/ai_flutter_1.git
+    ```
+3. 進入專案目錄：
+    ```sh
+    cd ai_code
+    ```
+4. 安裝所需的依賴：
+    ```sh
+    flutter pub get
+    ```
+5. 運行應用程式：
+    ```sh
+    flutter run
+    ```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 遊戲玩法
 
+1. 打開應用程式後，按下 "START!" 按鈕開始遊戲。
+2. 在遊戲過程中，點擊畫面下方的星星按鈕來獲得分數。
+3. 遊戲時間結束後，會顯示遊戲結束畫面。
+4. 可以按下 "AGAIN" 按鈕重新開始遊戲。
+5. 在遊戲過程中，可以按下暫停鍵來暫停遊戲。
+6. 在主畫面可以按下重置鍵來重置最佳分數
 
-## 待辦事項
-~~1. 修改所有按鈕樣式~~
-2. 加入音效
-~~3. 使方塊生成變成完全隨機~~
-~~4. 讓主畫面的得分不要一開始就顯示~~
-~~5. 記錄最佳紀錄~~
-~~6. 遊戲結束的呈現畫面~~
-~~7. 讓遊戲畫面有一個過度動畫~~
-8. 遊戲畫面固定為直立的
-
-請幫我在主畫面加入title.mp3的音效，按下"START!"按鈕後，請播放playing_game.webm直到遊戲結束，遊戲過程中按下按鈕請播放click.mp3，遊戲結束時請播放game_over.webm
 

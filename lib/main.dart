@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 void main() {
   runApp(const MyApp());
@@ -30,7 +31,7 @@ class _GamePageState extends State<GamePage>
   // 常數定義
   static const double BLOCK_HEIGHT = 125.0;
   static const double BLOCK_WIDTH = 125.0;
-  static const int INITIAL_TIME = 5;
+  static const int INITIAL_TIME = 3;
   static const int INITIAL_COUNTDOWN = 3;
 
   // 通用樣式
@@ -70,6 +71,9 @@ class _GamePageState extends State<GamePage>
   // 添加按鈕動畫相關變數
   Map<int, bool> buttonStates = {0: false, 1: false, 2: false};
 
+  final AudioCache _audioCache = AudioCache(prefix: 'assets/sounds/');
+  AudioPlayer? _backgroundPlayer;
+
   @override
   void initState() {
     super.initState();
@@ -78,6 +82,7 @@ class _GamePageState extends State<GamePage>
       vsync: this,
     );
     _loadBestScore();
+    _playTitleMusic();
   }
 
   Future<void> _loadBestScore() async {
@@ -127,12 +132,43 @@ class _GamePageState extends State<GamePage>
     );
   }
 
+  void _playTitleMusic() async {
+    _backgroundPlayer = await _audioCache.loop('title.mp3');
+  }
+
+  void _playGameMusic() async {
+    _backgroundPlayer?.stop();
+    _backgroundPlayer = await _audioCache.loop('playing_game.mp3');
+  }
+
+  void _playClickSound() {
+    _audioCache.play('click.mp3');
+  }
+
+  void _playGameOverMusic() async {
+    _backgroundPlayer?.stop();
+    _backgroundPlayer = await _audioCache.play('game_over.mp3');
+  }
+
+  void _playTapButtonSound() {
+    _audioCache.play('tap_button.mp3');
+  }
+
+  void _muteBackgroundMusic() {
+    _backgroundPlayer?.setVolume(0);
+  }
+
+  void _unmuteBackgroundMusic() {
+    _backgroundPlayer?.setVolume(1);
+  }
+
   @override
   void dispose() {
     _animationController.dispose();
     gameTimer?.cancel();
     dropTimer?.cancel();
     countdownTimer?.cancel();
+    _backgroundPlayer?.dispose();
     super.dispose();
   }
 
@@ -154,6 +190,7 @@ class _GamePageState extends State<GamePage>
       remainingTime = INITIAL_TIME;
       countdown = INITIAL_COUNTDOWN;
       grid = generateRandomGrid();
+      _playGameMusic();
     });
 
     _animationController.forward().then((_) {
@@ -176,9 +213,9 @@ class _GamePageState extends State<GamePage>
   void startMainGame() {
     gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
-        if (remainingTime > 0) {
+        if (!isPaused && remainingTime > 0) {
           remainingTime--;
-        } else {
+        } else if (remainingTime == 0) {
           isGameOver = true;
           if (score > bestScore) {
             bestScore = score;
@@ -187,6 +224,7 @@ class _GamePageState extends State<GamePage>
           }
           timer.cancel();
           dropTimer?.cancel();
+          _playGameOverMusic();
           setState(() {}); // 觸發重繪以顯示遊戲結束畫面
         }
       });
@@ -202,6 +240,7 @@ class _GamePageState extends State<GamePage>
         grid.insert(0, [0, 0, 0]);
         grid[0][newColumn] = 1;
         grid.removeLast();
+        _playClickSound();
       }
     });
   }
@@ -212,13 +251,16 @@ class _GamePageState extends State<GamePage>
       if (isPaused) {
         gameTimer?.cancel();
         countdownTimer?.cancel();
+        _muteBackgroundMusic();
       } else {
         startMainGame();
+        _unmuteBackgroundMusic();
       }
     });
   }
 
   void restartGame() {
+    _playTapButtonSound();
     setState(() {
       isPaused = false;
       isGameStarted = false;
@@ -270,8 +312,20 @@ class _GamePageState extends State<GamePage>
               ),
               const SizedBox(height: 20),
               for (var buttonData in [
-                {'text': '継続', 'onPressed': togglePause},
-                {'text': '重新', 'onPressed': restartGame},
+                {
+                  'text': '継続',
+                  'onPressed': () {
+                    _playTapButtonSound();
+                    togglePause();
+                  }
+                },
+                {
+                  'text': '重新',
+                  'onPressed': () {
+                    togglePause();
+                    restartGame();
+                  }
+                },
               ])
                 Padding(
                   padding: const EdgeInsets.only(bottom: 20),
@@ -397,6 +451,7 @@ class _GamePageState extends State<GamePage>
                 width: 200,
                 child: ElevatedButton(
                   onPressed: () {
+                    _playTapButtonSound();
                     setState(() {
                       isGameOver = false;
                       startGame();
@@ -521,7 +576,10 @@ class _GamePageState extends State<GamePage>
                 ),
                 color: Colors.white,
                 iconSize: 30,
-                onPressed: togglePause,
+                onPressed: () {
+                  _playTapButtonSound();
+                  togglePause();
+                },
               ),
             ),
           if (!isGameStarted)
@@ -532,7 +590,10 @@ class _GamePageState extends State<GamePage>
                 icon: const Icon(Icons.refresh),
                 color: Colors.white,
                 iconSize: 30,
-                onPressed: _showResetDialog,
+                onPressed: () {
+                  _playTapButtonSound();
+                  _showResetDialog();
+                },
               ),
             ),
           if (isPaused) buildPauseOverlay(),
@@ -604,7 +665,11 @@ class _GamePageState extends State<GamePage>
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: startGame,
+              onPressed: () {
+                _playTapButtonSound();
+                _backgroundPlayer?.stop();
+                startGame();
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color.fromARGB(255, 112, 173, 237),
                 foregroundColor: Colors.white,
