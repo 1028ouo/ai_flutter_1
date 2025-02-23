@@ -264,6 +264,7 @@ class _GamePageState extends State<GamePage>
     setState(() {
       isPaused = false;
       isGameStarted = false;
+      isGameOver = false; // 確保遊戲結束狀態被重置
       startGame();
     });
   }
@@ -322,7 +323,6 @@ class _GamePageState extends State<GamePage>
                 {
                   'text': '重新',
                   'onPressed': () {
-                    togglePause();
                     restartGame();
                   }
                 },
